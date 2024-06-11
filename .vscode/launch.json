@@ -1,0 +1,21 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        
+        {
+            "name": "Python Debugger: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "0a0feb71a5bfc69b27e63379f0f1e6eec03f73f8ada3ee66fcb8c4af84777a67.apk",
+                "working_dir/"
+            ]
+        }
+    ]
+}

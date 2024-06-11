@@ -1,0 +1,117 @@
+
+
+
+              ___.   .__.__                                                .______.                                                  
+  _____   ____\_ |__ |__|  |   ____               ___________    ____    __| _/\_ |__   _______  ___       ____  ____   _____        
+ /     \ /  _ \| __ \|  |  | _/ __ \    ______   /  ___/\__  \  /    \  / __ |  | __ \ /  _ \  \/  /     _/ ___\/  _ \ /     \       
+|  Y Y  (  <_> ) \_\ \  |  |_\  ___/   /_____/   \___ \  / __ \|   |  \/ /_/ |  | \_\ (  <_> >    <      \  \__(  <_> )  Y Y  \      
+|__|_|  /\____/|___  /__|____/\___  >           /____  >(____  /___|  /\____ |  |___  /\____/__/\_ \  /\  \___  >____/|__|_|  /      
+      \/           \/             \/                 \/      \/     \/      \/      \/            \/  \/      \/            \/       
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+	static analysis
+	2024-06-11	-	01:33:50
+
+
+-----------------------------------------------------------------------
+	application infos
+-----------------------------------------------------------------------
+		sha256:	0A0FEB71A5BFC69B27E63379F0F1E6EEC03F73F8ADA3EE66FCB8C4AF84777A67
+		md5:	B11632D0C5A3B761A65BCB73E58569B9
+		Label:	MySite2App.YachtMLS
+		SDK version:	4
+
+-----------------------------------------------------------------------
+	used providers
+-----------------------------------------------------------------------
+
+-----------------------------------------------------------------------
+	granted permissions
+-----------------------------------------------------------------------
+		Permission:	name='android.permission.INTERNET'
+		Permission:	name='android.permission.SEND_SMS'
+		Permission:	name='android.permission.CALL_PHONE'
+
+-----------------------------------------------------------------------
+	application features
+-----------------------------------------------------------------------
+
+-----------------------------------------------------------------------
+	used intents
+-----------------------------------------------------------------------
+		AndroidManifest	android.intent.action.MAIN
+		AndroidManifest	android.intent.category.LAUNCHER
+
+-----------------------------------------------------------------------
+	used services and receivers
+-----------------------------------------------------------------------
+
+-----------------------------------------------------------------------
+	potentially suspicious api-calls
+-----------------------------------------------------------------------
+		working_dir/smali/anywheresoftware/b4a/BA$5.smali:87	    invoke-virtual {v5, v6, v8}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+		working_dir/smali/anywheresoftware/b4a/BA$5.smali:146	    invoke-virtual {v6, v7, v8}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+		working_dir/smali/anywheresoftware/b4a/keywords/Common.smali:1332	    invoke-virtual {v1, v2}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/keywords/Common.smali:3399	    invoke-virtual {v3, v4}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/keywords/Common.smali:3465	    invoke-virtual {v4, v5}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/keywords/B4AApplication.smali:139	    invoke-virtual {v0, v1, v2}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+		working_dir/smali/anywheresoftware/b4a/keywords/B4AApplication.smali:168	    invoke-virtual {v0, v1, v2}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+		working_dir/smali/anywheresoftware/b4a/objects/NotificationWrapper.smali:193	    invoke-virtual {v1, v2}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/NotificationWrapper.smali:258	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/NotificationWrapper.smali:492	    invoke-virtual {v11, v12}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/SpinnerWrapper$B4ASpinnerAdapter.smali:81	    invoke-virtual {p1, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/AutoCompleteEditTextWrapper$1.smali:83	    invoke-virtual {v1, v2}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/ServiceHelper$StarterHelper.smali:957	    invoke-virtual {p0, v3}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/ServiceHelper.smali:62	    invoke-virtual {v0, v1}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/drawable/CanvasWrapper$BitmapWrapper.smali:424	    invoke-virtual {v5, v6}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/objects/streams/File.smali:1327	    invoke-static {}, Landroid/os/Environment;->getExternalStorageDirectory()Ljava/io/File;
+		working_dir/smali/anywheresoftware/b4a/objects/streams/File.smali:1424	    invoke-static {}, Landroid/os/Environment;->getExternalStorageDirectory()Ljava/io/File;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneOrientation.smali:51	    invoke-virtual {v2, v3}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneOrientation.smali:119	    invoke-virtual {v1, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/PhoneEvents$SMSInterceptor$2.smali:147	    invoke-virtual {v4}, Landroid/telephony/SmsMessage;->getMessageBody()Ljava/lang/String;
+		working_dir/smali/anywheresoftware/b4a/phone/PackageManagerWrapper.smali:195	    invoke-virtual {v0, p1, v1}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+		working_dir/smali/anywheresoftware/b4a/phone/PackageManagerWrapper.smali:219	    invoke-virtual {v0, p1, v1}, Landroid/content/pm/PackageManager;->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneSms.smali:120	    invoke-virtual/range {v0 .. v5}, Landroid/telephony/SmsManager;->sendTextMessage(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Landroid/app/PendingIntent;Landroid/app/PendingIntent;)V
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneId.smali:41	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneId.smali:49	    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getDeviceId()Ljava/lang/String;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneId.smali:73	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneId.smali:105	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneId.smali:137	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneId.smali:145	    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getSubscriberId()Ljava/lang/String;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneSensors.smali:153	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneSensors.smali:226	    invoke-virtual {v1, v2}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneSensors.smali:277	    invoke-virtual {v1, v2}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneVibrate.smali:43	    invoke-virtual {v1, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:74	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:156	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:188	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:332	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:441	    invoke-virtual {v2, v3}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:491	    invoke-virtual {v1, v2}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:553	    invoke-virtual {v1, v2}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:762	    invoke-virtual {v5, p0}, Ljava/lang/Runtime;->exec(Ljava/lang/String;)Ljava/lang/Process;
+
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:852	    invoke-virtual {v5, v0}, Ljava/lang/Runtime;->exec([Ljava/lang/String;)Ljava/lang/Process;
+
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:973	    invoke-virtual {v0, v1}, Landroid/app/Application;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:997	    sget-object v0, Landroid/os/Build;->MODEL:Ljava/lang/String;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone.smali:1007	    sget-object v0, Landroid/os/Build;->PRODUCT:Ljava/lang/String;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneWakeState.smali:74	    invoke-virtual {v1, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneWakeState.smali:151	    invoke-virtual {v1, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneAccelerometer.smali:49	    invoke-virtual {v2, v3}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$PhoneAccelerometer.smali:121	    invoke-virtual {v1, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+		working_dir/smali/anywheresoftware/b4a/phone/Phone$LogCat$1.smali:60	    invoke-virtual {v4, v5}, Ljava/lang/Runtime;->exec([Ljava/lang/String;)Ljava/lang/Process;
+
+
+-----------------------------------------------------------------------
+	URL's and IP's inside the code
+-----------------------------------------------------------------------
+		working_dir/smali/MySite2App/YachtMLS/main.smali:0	https://www.yachtworld.com/
+		working_dir/smali/MySite2App/YachtMLS/main.smali:0	https://mickeyk6000.wixsite.com/winkyone?boats
+		working_dir/smali/MySite2App/YachtMLS/main.smali:0	https://www.yachtworld.com
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+	 (c) by mspreitz 2015 		 www.mobile-sandbox.com
