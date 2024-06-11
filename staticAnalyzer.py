@@ -947,7 +947,7 @@ def createOutput(workingDir, appNet, appProviders, appPermissions, appFeatures,
                                          '%Y-%m-%dT%H:%M:%SZ'))
 
     output = report_to_feature_vector(output)
-    outpath = os.path.join(workingDir, 'results', run_id + '.json')
+    outpath = os.path.join(workingDir, sha + '.json')
     print("saving results at {}...".format(outpath))
     jsonFileName = outpath
     jsonFile = open(jsonFileName, "a+")
