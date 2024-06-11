@@ -12,5 +12,3 @@ pip3 install -r requirements.txt
 python3 drebin.py <APK-PATH> <WORKING-DIR>
 ```
 Results saved inside working dir.
-
-*Careful, working dir gets deleted everytime this is launched.*
