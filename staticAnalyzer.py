@@ -179,7 +179,8 @@ def copyIcon(sampleFile, unpackLocation, workingDir):
 def dex2X(tmpDir, dexFile):
     # baksmali
     smaliLocation = tmpDir + "smali"
-    os.mkdir(smaliLocation)
+    if not os.path.exists(smaliLocation):
+        os.mkdir(smaliLocation)
     baksmali = subprocess.Popen(
         ['java', '-Xmx256M', '-jar', settings.BACKSMALI, '-o', smaliLocation, dexFile])
     baksmali.wait()
@@ -879,12 +880,11 @@ def parseSmaliURL(logFile, smaliLocation):
             continue
     return url
 
-
-# unpack the sample apk-file
 def unpackSample(tmpDir, sampleFile):
-    unpackLocation = tmpDir + "unpack"
-    os.mkdir(unpackLocation)
-    os.system("unzip " + "-o -q -d " + unpackLocation + " " + sampleFile)
+    unpackLocation = os.path.join(tmpDir, "unpack")
+    if not os.path.exists(unpackLocation):
+        os.mkdir(unpackLocation)
+    os.system(f"unzip -o -q -d {unpackLocation} {sampleFile}")
     return unpackLocation
 
 
@@ -947,7 +947,7 @@ def createOutput(workingDir, appNet, appProviders, appPermissions, appFeatures,
                                          '%Y-%m-%dT%H:%M:%SZ'))
 
     output = report_to_feature_vector(output)
-    outpath = os.path.join(workingDir, sha + '.json')
+    outpath = os.path.join(workingDir, 'results', sha + '.json')
     print("saving results at {}...".format(outpath))
     jsonFileName = outpath
     jsonFile = open(jsonFileName, "a+")
