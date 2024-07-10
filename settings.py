@@ -38,3 +38,4 @@ EMPTYICON = "empty.png"
 APICALLS = "APIcalls.txt"
 BACKSMALI = "baksmali-2.0.3.jar"  # location of the baksmali.jar file
 ADSLIBS = "ads.csv"
+N_CORES = 8
