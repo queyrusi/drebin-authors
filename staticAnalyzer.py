@@ -35,6 +35,12 @@ import subprocess
 import ujson as json
 import uuid
 import glob
+import time
+from multiprocessing import Pool
+import multiprocessing
+import threading
+
+
 
 import ssdeep
 
@@ -46,10 +52,182 @@ import settings
 CC = ''.join(map(chr, list(range(0, 32)) + list(range(127, 160))))
 sha = None
 
+primary_path = settings.APICALLS
+fallback_path = "/home/ubuntu/Simon/andromatch/detectors/Drebin/preprocessing/drebin-authors/APIcalls.txt"
+try:
+    with open(primary_path) as f:
+        apiCallList = f.readlines()
+except FileNotFoundError:
+    print(f"File not found at {primary_path}. Trying fallback path...")
+    if os.path.exists(fallback_path):
+        with open(fallback_path) as f:
+            apiCallList = f.readlines()
+    else:
+        raise FileNotFoundError(f"File not found at both {primary_path} and {fallback_path}")
+
+apiCallList = tuple(apiCallList)
+
 
 #########################################################################################
 #                                    Functions                                          #
 #########################################################################################
+def chunkify(lst, n):
+            return [lst[i::n] for i in range(n)]
+
+def checkAPI_process_files(process_name, file_chunk):
+    # Log the start time of the function
+    thread_start_time = time.time()
+    chunk_permissions = set()
+    chunk_calls = []
+    large_for_loop_start_time = time.time()
+    cumul_loop_time = 0
+    iteration_times = []
+
+    # Debugging
+    debug_directory = "/home/ubuntu/Simon/andromatch/garbage/debugDrebin"
+    os.makedirs(debug_directory, exist_ok=True)  # Create the directory if it doesn't exist
+    
+    
+    for num_file, file in enumerate(file_chunk):
+        inside_for_loop_start_time = time.time()
+        try:
+            file_compile_start_time = time.time()
+            file = re.compile('[%s]' % re.escape(CC)).sub('', file)
+            # print(f"Compile took {time.time() - file_compile_start_time:.2f} seconds")
+            with open(file, 'r') as smaliFile:
+                for_loop_start_time = time.time()
+                read_loop_start_time = time.time()
+                smaliContent = smaliFile.read()
+
+                # TODO
+                # if "READ_CONTACT" in smaliContent:
+                #     debug_file_path = os.path.join(directory, f"{thread_name}_file_{num_file}.txt")
+
+                #     # Write the iteration_times to the file
+                #     with open(debug_file_path, 'w') as file:
+                #         for time_value in iteration_times:
+                #             file.write(f"{time_value}\n")
+                    
+                #     print(f"Debug info saved to {debug_file_path}")
+
+                # print(f"Read took {time.time() - read_loop_start_time:.2f} seconds")
+                for_loop_start_time = time.time()
+                for apiCall in apiCallList:
+                    apiCallParts = apiCall.split("|")
+                    if smaliContent.find(apiCallParts[0]) != -1:
+                        try:
+                            permission = apiCallParts[1].split("\n")[0]
+                        except:
+                            permission = ""
+                        if permission != "":
+                            chunk_permissions.add(permission)
+                        # Duplicate checking (permission not in apiPermissions) is done 
+                        # during aggregation
+                        chunk_calls.append(apiCallParts)
+                    # print(f"For loop took {time.time() - inside_for_loop_start_time:.2f} seconds")
+                    else:
+                        continue
+        except Exception as e:
+            # Logging the error can be added here if needed
+            print("133", e)
+            pass
+        inside_for_loop_took = time.time() - inside_for_loop_start_time
+        iteration_times.append(inside_for_loop_took)
+        cumul_loop_time += inside_for_loop_took
+
+    # print(f"Large for loop took {time.time() - large_for_loop_start_time:.2f} seconds")
+    # print(f"As stated by {cumul_loop_time:.2f} seconds")
+    # print(f"Longest iteration {max(iteration_times):.2f} seconds")
+
+    # ------------------------------------------------------------------------------
+    # Uncomment this to save thread datetimes:
+    # ----------vvv-----------------------------------------------------------------
+    ## Get the name of the current thread
+    # thread_name = process_name
+    
+    ## Log the end time of the function
+    # thread_end_time = time.time()
+
+    # print(f"Thread took {thread_end_time - thread_start_time:.2f} seconds")
+    # file_path = os.path.join(directory, f"datetime_{thread_name}.txt")
+
+    # # Write the iteration_times to the file
+    # with open(file_path, 'w') as file:
+    #     file.write(f"started at {thread_start_time:.6f} and ended at {thread_end_time:.6f}\n")
+    
+    # print(f"Datetimes of the thread saved to {file_path}")
+    # ------------------------------------------------------------------------------
+
+    return chunk_permissions, chunk_calls
+
+# get permissions by used API
+def checkAPIpermissions(smaliLocation):
+
+    apiPermissions = set()
+    apiCalls = []
+    # create file-list of directory
+    fileList = []
+    for dirname, dirnames, filenames in os.walk(smaliLocation):
+        for filename in filenames:
+            fileList.append(os.path.join(dirname, filename))
+
+    # parse every file in file-list and search for every API call in API-Call-List
+    fileList = sorted(fileList)
+
+    if settings.N_CORES <= 1:
+        for file in fileList:
+            try:
+                file = re.compile('[%s]' % re.escape(CC)).sub('', file)
+                smaliFile = open(file).read()
+                for apiCall in apiCallList:
+                    apiCall = apiCall.split("|")
+                    if smaliFile.find(apiCall[0]) != -1:
+                        try:
+                            permission = apiCall[1].split("\n")[0]
+                        except:
+                            permission = ""
+                        if (permission not in apiPermissions) and (
+                                permission != ""):
+                            apiPermissions.add(permission)
+                            #apiCalls.append(apiCall)
+                        apiCalls.append(apiCall)
+                    else:
+                        continue
+            except Exception as e:
+                # print "File " + file + " has illegal characters in its name!"
+                continue
+
+    #region [ rgba(190, 5, 30, 0.3) ] MULTI-THREAD checkAPIpermission
+    elif settings.N_CORES > 1:
+        def multithread_main(max_workers=None):
+            file_chunks = chunkify(fileList, max_workers)
+            try:
+                with Pool(processes=max_workers) as pool:
+                    multithread_start_time = time.time()
+                    results = pool.starmap(checkAPI_process_files,
+                     [(f"Thread-{i}", chunk) for i, chunk in enumerate(file_chunks)])
+                
+                    for i, (permissions, calls) in enumerate(results):
+                        apiPermissions.update(permissions)
+                        apiCalls.extend(calls)
+            except Exception as e:
+                print("214:", e)
+
+        multithread_main(max_workers=settings.N_CORES)
+
+        # Convert apiPermissions back to a list if needed
+        apiPermissions = list(apiPermissions)
+    #endregion
+
+    return (apiPermissions, apiCalls)
+
+
+def named_process_files(name, file_chunk):
+    process = multiprocessing.current_process()
+    process.name = name
+    return process_files(file_chunk)
+
+
 # create Log file
 def createLogFile(logDir):
     if not os.path.exists(logDir):
@@ -111,42 +289,10 @@ def hash(fileSystemPosition):
         ssdeepValue = "(None)"
         return ssdeepValue
 
-
-# get permissions by used API
-def checkAPIpermissions(smaliLocation):
-    with open(settings.APICALLS) as f:
-        apiCallList = f.readlines()
-    apiPermissions = []
-    apiCalls = []
-    # create file-list of directory
-    fileList = []
-    for dirname, dirnames, filenames in os.walk(smaliLocation):
-        for filename in filenames:
-            fileList.append(os.path.join(dirname, filename))
-    # parse every file in file-list and search for every API call in API-Call-List
-    fileList = sorted(fileList)
-    for file in fileList:
-        try:
-            file = re.compile('[%s]' % re.escape(CC)).sub('', file)
-            smaliFile = open(file).read()
-            for apiCall in apiCallList:
-                apiCall = apiCall.split("|")
-                if smaliFile.find(apiCall[0]) != -1:
-                    try:
-                        permission = apiCall[1].split("\n")[0]
-                    except:
-                        permission = ""
-                    if (permission not in apiPermissions) and (
-                            permission != ""):
-                        apiPermissions.append(permission)
-                        #apiCalls.append(apiCall)
-                    apiCalls.append(apiCall)
-                else:
-                    continue
-        except:
-            # print "File " + file + " has illegal characters in its name!"
-            continue
-    return (apiPermissions, apiCalls)
+# Define a function that takes multiple arguments TODO
+def slow_multiply(x, y):
+    time.sleep(1)  # Simulate a slow function
+    return x * y
 
 
 # copy the icon
@@ -181,8 +327,19 @@ def dex2X(tmpDir, dexFile):
     smaliLocation = tmpDir + "smali"
     if not os.path.exists(smaliLocation):
         os.mkdir(smaliLocation)
+
+    # Define the paths
+    backsmali_path = settings.BACKSMALI
+    backsmali_fallback_path = "/home/ubuntu/Simon/andromatch/detectors/Drebin/preprocessing/drebin-authors/baksmali-2.0.3.jar"
+    
+    # Check if the primary path exists, if not, use the fallback path
+    if not os.path.exists(backsmali_path):
+        print(f"Primary path {backsmali_path} does not exist. Using fallback path.")
+        backsmali_path = backsmali_fallback_path
+    
+    print(f"Using backsmali path: {backsmali_path}")
     baksmali = subprocess.Popen(
-        ['java', '-Xmx256M', '-jar', settings.BACKSMALI, '-o', smaliLocation, dexFile])
+        ['java', '-Xmx256M', '-jar', backsmali_path, '-o', smaliLocation, dexFile])
     baksmali.wait()
     return smaliLocation
 
@@ -551,6 +708,288 @@ def getServicesReceivers(logFile, sampleFile):
     return servicesANDreceiver
 
 
+# helper for parseSmaliCalls
+def parseSmaliLine(line, counter, dangerousCalls, smaliFile):
+    i = counter
+    if "Cipher" in line:
+        try:
+            prevLine = \
+                smaliFile[smaliFile.index(line) - 2].split("\n")[
+                    0].split('"')[1]
+            if "Cipher(" + prevLine + ")" in dangerousCalls:
+                pass
+            else:
+                dangerousCalls.append("Cipher(" + prevLine + ")")
+        except Exception as e:
+            # print("735", e)
+            pass
+    # only for logging !
+    if "crypto" in line:
+        try:
+            line = line.split("\n")[0]
+        except Exception as e:
+            print("741", e)
+    if "Ljava/net/HttpURLconnection;->setRequestMethod(Ljava/lang/String;)" in line:
+         
+        if "HTTP GET/POST (Ljava/net/HttpURLconnection;->setRequestMethod(Ljava/lang/String;))" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "HTTP GET/POST (Ljava/net/HttpURLconnection;->setRequestMethod(Ljava/lang/String;))")
+    if "Ljava/net/HttpURLconnection" in line:
+         
+        if "HttpURLconnection (Ljava/net/HttpURLconnection)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "HttpURLconnection (Ljava/net/HttpURLconnection)")
+    if "getExternalStorageDirectory" in line:
+         
+        if "Read/Write External Storage" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("Read/Write External Storage")
+    if "getSimCountryIso" in line:
+         
+        if "getSimCountryIso" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getSimCountryIso")
+    if "execHttpRequest" in line:
+         
+        if "execHttpRequest" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("execHttpRequest")
+    if "Lorg/apache/http/client/methods/HttpPost" in line:
+         
+        if "HttpPost (Lorg/apache/http/client/methods/HttpPost)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "HttpPost (Lorg/apache/http/client/methods/HttpPost)")
+    if "Landroid/telephony/SmsMessage;->getMessageBody" in line:
+         
+        if "readSMS (Landroid/telephony/SmsMessage;->getMessageBody)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "readSMS (Landroid/telephony/SmsMessage;->getMessageBody)")
+    if "sendTextMessage" in line:
+         
+        if "sendSMS" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("sendSMS")
+    if "getSubscriberId" in line:
+         
+        if "getSubscriberId" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getSubscriberId")
+    if "getDeviceId" in line:
+         
+        if "getDeviceId" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getDeviceId")
+    if "getPackageInfo" in line:
+         
+        if "getPackageInfo" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getPackageInfo")
+    if "getSystemService" in line:
+         
+        if "getSystemService" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getSystemService")
+    if "getWifiState" in line:
+         
+        if "getWifiState" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getWifiState")
+    if "system/bin/su" in line:
+         
+        if "system/bin/su" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("system/bin/su")
+    if "setWifiEnabled" in line:
+         
+        if "setWifiEnabled" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("setWifiEnabled")
+    if "setWifiDisabled" in line:
+         
+        if "setWifiDisabled" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("setWifiDisabled")
+    if "getCellLocation" in line:
+         
+        if "getCellLocation" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getCellLocation")
+    if "getNetworkCountryIso" in line:
+         
+        if "getNetworkCountryIso" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getNetworkCountryIso")
+    if "SystemClock.uptimeMillis" in line:
+         
+        if "SystemClock.uptimeMillis" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("SystemClock.uptimeMillis")
+    if "getCellSignalStrength" in line:
+         
+        if "getCellSignalStrength" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("getCellSignalStrength")
+    if "Landroid/os/Build;->BRAND:Ljava/lang/String" in line:
+         
+        if "Access Device Info (Landroid/os/Build;->BRAND:Ljava/lang/String)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Access Device Info (Landroid/os/Build;->BRAND:Ljava/lang/String)")
+    if "Landroid/os/Build;->DEVICE:Ljava/lang/String" in line:
+         
+        if "Access Device Info (Landroid/os/Build;->DEVICE:Ljava/lang/String)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Access Device Info (Landroid/os/Build;->DEVICE:Ljava/lang/String)")
+    if "Landroid/os/Build;->MODEL:Ljava/lang/String" in line:
+         
+        if "Access Device Info (Landroid/os/Build;->MODEL:Ljava/lang/String)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Access Device Info (Landroid/os/Build;->MODEL:Ljava/lang/String)")
+    if "Landroid/os/Build;->PRODUCT:Ljava/lang/String" in line:
+         
+        if "Access Device Info (Landroid/os/Build;->PRODUCT:Ljava/lang/String)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Access Device Info (Landroid/os/Build;->PRODUCT:Ljava/lang/String)")
+    if "Landroid/os/Build;->FINGERPRINT:Ljava/lang/String" in line:
+         
+        if "Access Device Info (Landroid/os/Build;->FINGERPRINT:Ljava/lang/String)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Access Device Info (Landroid/os/Build;->FINGERPRINT:Ljava/lang/String)")
+    if "adb_enabled" in line:
+         
+        if "Check if adb is enabled" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("Check if adb is enabled")
+    # used by exploits and bad programers
+    if "Ljava/io/IOException;->printStackTrace" in line:
+         
+        if "printStackTrace" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("printStackTrace")
+    if "Ljava/lang/Runtime;->exec" in line:
+         
+        if "Execution of external commands (Ljava/lang/Runtime;->exec)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Execution of external commands (Ljava/lang/Runtime;->exec)")
+    if "Ljava/lang/System;->loadLibrary" in line:
+         
+        if "Loading of external Libraries (Ljava/lang/System;->loadLibrary)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Loading of external Libraries (Ljava/lang/System;->loadLibrary)")
+    if "Ljava/lang/System;->load" in line:
+         
+        if "Loading of external Libraries (Ljava/lang/System;->load)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Loading of external Libraries (Ljava/lang/System;->load)")
+    if "Ldalvik/system/DexClassLoader;" in line:
+         
+        if "Loading of external Libraries (Ldalvik/system/DexClassLoader;)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Loading of external Libraries (Ldalvik/system/DexClassLoader;)")
+    if "Ldalvik/system/SecureClassLoader;" in line:
+         
+        if "Loading of external Libraries (Ldalvik/system/SecureClassLoader;)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Loading of external Libraries (Ldalvik/system/SecureClassLoader;)")
+    if "Ldalvik/system/PathClassLoader;" in line:
+         
+        if "Loading of external Libraries (Ldalvik/system/PathClassLoader;)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Loading of external Libraries (Ldalvik/system/PathClassLoader;)")
+    if "Ldalvik/system/BaseDexClassLoader;" in line:
+         
+        if "Loading of external Libraries (Ldalvik/system/BaseDexClassLoader;)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Loading of external Libraries (Ldalvik/system/BaseDexClassLoader;)")
+    if "Ldalvik/system/URLClassLoader;" in line:
+         
+        if "Loading of external Libraries (Ldalvik/system/URLClassLoader;)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Loading of external Libraries (Ldalvik/system/URLClassLoader;)")
+    if "android/os/Exec" in line:
+         
+        if "Execution of native code (android/os/Exec)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append(
+                "Execution of native code (android/os/Exec)")
+    if "Base64" in line:
+         
+        if "Obfuscation(Base64)" in dangerousCalls:
+            pass
+        else:
+            dangerousCalls.append("Obfuscation(Base64)")
+    return dangerousCalls
+
+
+# executable for parseSmaliCalls
+def parseSamliCalls_process_files(process_name, file_chunk):
+    dangerousCalls = [] # TODO am I correct to do that?
+    for file in file_chunk:
+        try:
+            file = re.compile('[%s]' % re.escape(CC)).sub('', file)
+            smaliFile = open(file).readlines()
+            i = 0
+            for line in smaliFile:
+                i += 1
+                dangerousCalls = parseSmaliLine(line, i, dangerousCalls, smaliFile)
+        except Exception as e:
+            # print "File " + file + " has illegal characters in its name!"
+            continue
+    return dangerousCalls
+
+
 # parsing smali-output for suspicious content
 def parseSmaliCalls(logFile, smaliLocation):
     log(logFile, 0, "potentially suspicious api-calls", 0)
@@ -560,294 +999,49 @@ def parseSmaliCalls(logFile, smaliLocation):
     for dirname, dirnames, filenames in os.walk(smaliLocation):
         for filename in filenames:
             fileList.append(os.path.join(dirname, filename))
-    # parse every file in file-list
-    for file in fileList:
-        try:
-            file = re.compile('[%s]' % re.escape(CC)).sub('', file)
-            smaliFile = open(file).readlines()
-            i = 0
-            for line in smaliFile:
-                i += 1
-                if "Cipher" in line:
-                    try:
-                        prevLine = \
-                            smaliFile[smaliFile.index(line) - 2].split("\n")[
-                                0].split('"')[1]
-                        log(logFile, file + ":" + str(i), line.split("\n")[0],
-                            1)
-                        if "Cipher(" + prevLine + ")" in dangerousCalls:
-                            continue
-                        else:
-                            dangerousCalls.append("Cipher(" + prevLine + ")")
-                    except:
-                        continue
-                # only for logging !
-                if "crypto" in line:
-                    try:
-                        line = line.split("\n")[0]
-                        log(logFile, file + ":" + str(i), line, 1)
-                    except:
-                        continue
-                if "Ljava/net/HttpURLconnection;->setRequestMethod(Ljava/lang/String;)" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "HTTP GET/POST (Ljava/net/HttpURLconnection;->setRequestMethod(Ljava/lang/String;))" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "HTTP GET/POST (Ljava/net/HttpURLconnection;->setRequestMethod(Ljava/lang/String;))")
-                if "Ljava/net/HttpURLconnection" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "HttpURLconnection (Ljava/net/HttpURLconnection)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "HttpURLconnection (Ljava/net/HttpURLconnection)")
-                if "getExternalStorageDirectory" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "Read/Write External Storage" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("Read/Write External Storage")
-                if "getSimCountryIso" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getSimCountryIso" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getSimCountryIso")
-                if "execHttpRequest" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "execHttpRequest" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("execHttpRequest")
-                if "Lorg/apache/http/client/methods/HttpPost" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "HttpPost (Lorg/apache/http/client/methods/HttpPost)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "HttpPost (Lorg/apache/http/client/methods/HttpPost)")
-                if "Landroid/telephony/SmsMessage;->getMessageBody" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "readSMS (Landroid/telephony/SmsMessage;->getMessageBody)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "readSMS (Landroid/telephony/SmsMessage;->getMessageBody)")
-                if "sendTextMessage" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "sendSMS" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("sendSMS")
-                if "getSubscriberId" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getSubscriberId" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getSubscriberId")
-                if "getDeviceId" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getDeviceId" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getDeviceId")
-                if "getPackageInfo" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getPackageInfo" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getPackageInfo")
-                if "getSystemService" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getSystemService" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getSystemService")
-                if "getWifiState" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getWifiState" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getWifiState")
-                if "system/bin/su" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "system/bin/su" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("system/bin/su")
-                if "setWifiEnabled" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "setWifiEnabled" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("setWifiEnabled")
-                if "setWifiDisabled" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "setWifiDisabled" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("setWifiDisabled")
-                if "getCellLocation" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getCellLocation" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getCellLocation")
-                if "getNetworkCountryIso" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getNetworkCountryIso" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getNetworkCountryIso")
-                if "SystemClock.uptimeMillis" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "SystemClock.uptimeMillis" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("SystemClock.uptimeMillis")
-                if "getCellSignalStrength" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "getCellSignalStrength" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("getCellSignalStrength")
-                if "Landroid/os/Build;->BRAND:Ljava/lang/String" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "Access Device Info (Landroid/os/Build;->BRAND:Ljava/lang/String)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Access Device Info (Landroid/os/Build;->BRAND:Ljava/lang/String)")
-                if "Landroid/os/Build;->DEVICE:Ljava/lang/String" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "Access Device Info (Landroid/os/Build;->DEVICE:Ljava/lang/String)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Access Device Info (Landroid/os/Build;->DEVICE:Ljava/lang/String)")
-                if "Landroid/os/Build;->MODEL:Ljava/lang/String" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "Access Device Info (Landroid/os/Build;->MODEL:Ljava/lang/String)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Access Device Info (Landroid/os/Build;->MODEL:Ljava/lang/String)")
-                if "Landroid/os/Build;->PRODUCT:Ljava/lang/String" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "Access Device Info (Landroid/os/Build;->PRODUCT:Ljava/lang/String)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Access Device Info (Landroid/os/Build;->PRODUCT:Ljava/lang/String)")
-                if "Landroid/os/Build;->FINGERPRINT:Ljava/lang/String" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "Access Device Info (Landroid/os/Build;->FINGERPRINT:Ljava/lang/String)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Access Device Info (Landroid/os/Build;->FINGERPRINT:Ljava/lang/String)")
-                if "adb_enabled" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "Check if adb is enabled" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("Check if adb is enabled")
-                # used by exploits and bad programers
-                if "Ljava/io/IOException;->printStackTrace" in line:
-                    log(logFile, file + ":" + str(i), line.split("\n")[0], 1)
-                    if "printStackTrace" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("printStackTrace")
-                if "Ljava/lang/Runtime;->exec" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Execution of external commands (Ljava/lang/Runtime;->exec)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Execution of external commands (Ljava/lang/Runtime;->exec)")
-                if "Ljava/lang/System;->loadLibrary" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Loading of external Libraries (Ljava/lang/System;->loadLibrary)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Loading of external Libraries (Ljava/lang/System;->loadLibrary)")
-                if "Ljava/lang/System;->load" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Loading of external Libraries (Ljava/lang/System;->load)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Loading of external Libraries (Ljava/lang/System;->load)")
-                if "Ldalvik/system/DexClassLoader;" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Loading of external Libraries (Ldalvik/system/DexClassLoader;)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Loading of external Libraries (Ldalvik/system/DexClassLoader;)")
-                if "Ldalvik/system/SecureClassLoader;" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Loading of external Libraries (Ldalvik/system/SecureClassLoader;)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Loading of external Libraries (Ldalvik/system/SecureClassLoader;)")
-                if "Ldalvik/system/PathClassLoader;" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Loading of external Libraries (Ldalvik/system/PathClassLoader;)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Loading of external Libraries (Ldalvik/system/PathClassLoader;)")
-                if "Ldalvik/system/BaseDexClassLoader;" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Loading of external Libraries (Ldalvik/system/BaseDexClassLoader;)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Loading of external Libraries (Ldalvik/system/BaseDexClassLoader;)")
-                if "Ldalvik/system/URLClassLoader;" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Loading of external Libraries (Ldalvik/system/URLClassLoader;)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Loading of external Libraries (Ldalvik/system/URLClassLoader;)")
-                if "android/os/Exec" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Execution of native code (android/os/Exec)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append(
-                            "Execution of native code (android/os/Exec)")
-                if "Base64" in line:
-                    log(logFile, file + ":" + str(i), line, 1)
-                    if "Obfuscation(Base64)" in dangerousCalls:
-                        continue
-                    else:
-                        dangerousCalls.append("Obfuscation(Base64)")
-                else:
-                    continue
-        except:
-            # print "File " + file + " has illegal characters in its name!"
-            continue
+
+    if settings.N_CORES <= 1:
+        # parse every file in file-list
+        for file in fileList:
+            try:
+                file = re.compile('[%s]' % re.escape(CC)).sub('', file)
+                smaliFile = open(file).readlines()
+                i = 0
+                for line in smaliFile:
+                    i += 1
+                    dangerousCalls = parseSmaliLine(line, i, dangerousCalls, smaliFile)
+            except Exception as e:
+                # print "File " + file + " has illegal characters in its name!"
+                continue
+
+    #region [ rgba(190, 75, 30, 0.2) ] MULTI-THREAD parseSmaliCalls
+    elif settings.N_CORES > 1:
+        def multithread_main(max_workers=None):
+            dangerousCalls = []
+            file_chunks = chunkify(fileList, max_workers)
+            try:
+                with Pool(processes=max_workers) as pool:
+                    multithread_start_time = time.time()
+                    results = pool.starmap(parseSamliCalls_process_files,
+                    [(f"Thread-{i}", chunk) for i, chunk in enumerate(file_chunks)])
+                
+                    for i, dangerousCallsResult in enumerate(results):
+                        for call in dangerousCallsResult:
+                            if call not in dangerousCalls:
+                                dangerousCalls.append(call)
+            except Exception as e:
+                print("Error after threading:", e)
+            return dangerousCalls
+        
+        dangerousCalls = multithread_main(max_workers=settings.N_CORES)
+    #endregion
     return dangerousCalls
 
 
-# parsing smali-output for URL's and IP's
-def parseSmaliURL(logFile, smaliLocation):
-    url = []
-    # create file-list of directory
-    fileList = []
-    log(logFile, 0, "URL's and IP's inside the code", 0)
-    for dirname, dirnames, filenames in os.walk(smaliLocation):
-        for filename in filenames:
-            fileList.append(os.path.join(dirname, filename))
-    # parse every file in file-list
-    for file in fileList:
+# helper for parselSmaliURL
+def parseSmaliURL_process_files(process_name, file_chunk):
+    urls = []
+    for file in file_chunk:
         try:
             i = 0
             smaliFile = open(file).readlines()
@@ -856,9 +1050,8 @@ def parseSmaliURL(logFile, smaliLocation):
                     urlPattern = re.search(
                         'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+',
                         line).group()
-                    log(logFile, file + ":" + str(i), urlPattern, 1)
-                    if (urlPattern not in url) and (urlPattern != ""):
-                        url.append(urlPattern)
+                    if (urlPattern not in urls) and (urlPattern != ""):
+                        urls.append(urlPattern)
                     else:
                         continue
                 except:
@@ -867,9 +1060,8 @@ def parseSmaliURL(logFile, smaliLocation):
                     ips = re.search(
                         '(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})',
                         line).group()
-                    log(logFile, file + ":" + str(i), ips, 1)
-                    if (ips not in url) and (ips != ""):
-                        url.append(ips)
+                    if (ips not in urls) and (ips != ""):
+                        urls.append(ips)
                     else:
                         continue
                 except:
@@ -877,14 +1069,85 @@ def parseSmaliURL(logFile, smaliLocation):
                 i += 1
         except:
             # print "File " + file + " has illegal characters in its name!"
+            print("1072 ", e)
             continue
-    return url
+    return urls
 
+# parsing smali-output for URL's and IP's
+def parseSmaliURL(logFile, smaliLocation):
+    urls = []
+    # create file-list of directory
+    fileList = []
+    log(logFile, 0, "URL's and IP's inside the code", 0)
+    for dirname, dirnames, filenames in os.walk(smaliLocation):
+        for filename in filenames:
+            fileList.append(os.path.join(dirname, filename))
+
+    if settings.N_CORES <= 1:
+        # parse every file in file-list
+        for file in fileList:
+            try:
+                i = 0
+                smaliFile = open(file).readlines()
+                for line in smaliFile:
+                    try:
+                        urlPattern = re.search(
+                            'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+',
+                            line).group()
+                        log(logFile, file + ":" + str(i), urlPattern, 1)
+                        if (urlPattern not in urls) and (urlPattern != ""):
+                            urls.append(urlPattern)
+                        else:
+                            continue
+                    except:
+                        continue
+                    try:
+                        ips = re.search(
+                            '(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})',
+                            line).group()
+                        log(logFile, file + ":" + str(i), ips, 1)
+                        if (ips not in urls) and (ips != ""):
+                            urls.append(ips)
+                        else:
+                            continue
+                    except:
+                        continue
+                    i += 1
+            except:
+                # print "File " + file + " has illegal characters in its name!"
+                continue
+
+    #region [ rgba(190, 5, 100, 0.2) ] MULTI-THREAD parseSmaliURL
+    elif settings.N_CORES > 1:
+        def multithread_main(max_workers=None):
+            urls = []
+            file_chunks = chunkify(fileList, max_workers)
+            try:
+                with Pool(processes=max_workers) as pool:
+                    multithread_start_time = time.time()
+                    results = pool.starmap(parseSmaliURL_process_files,
+                    [(f"Thread-{i}", chunk) for i, chunk in enumerate(file_chunks)])
+                
+                    for i, urlResult in enumerate(results):
+                        for url in urlResult:
+                            if url not in urls:
+                                urls.append(url)
+            except Exception as e:
+                print("1134:", e)
+            return urls
+
+        urls = multithread_main(max_workers=settings.N_CORES)
+
+    #endregion
+    return urls
+
+
+# unpack the sample apk-file
 def unpackSample(tmpDir, sampleFile):
-    unpackLocation = os.path.join(tmpDir, "unpack")
+    unpackLocation = tmpDir + "unpack"
     if not os.path.exists(unpackLocation):
         os.mkdir(unpackLocation)
-    os.system(f"unzip -o -q -d {unpackLocation} {sampleFile}")
+    os.system("unzip " + "-o -q -d " + unpackLocation + " " + sampleFile)
     return unpackLocation
 
 
@@ -935,25 +1198,27 @@ def createOutput(workingDir, appNet, appProviders, appPermissions, appFeatures,
     output['providers'] = appProviders
     output['included_files'] = appFiles
     output['detected_ad_networks'] = detectedAds
+
     # save the JSON dict to a file for later use
     if not os.path.exists(workingDir):
         os.mkdir(workingDir)
 
-    if not os.path.exists(os.path.join(workingDir, 'results')):
-        os.mkdir(os.path.join(workingDir, 'results'))
+    # if not os.path.exists(os.path.join(workingDir, 'results')):
+    #     os.mkdir(os.path.join(workingDir, 'results'))
 
     run_id = '{}drebin-{}@{}'.format(sha, str(uuid.uuid4())[:6],
                                      datetime.datetime.utcnow().strftime(
                                          '%Y-%m-%dT%H:%M:%SZ'))
 
     output = report_to_feature_vector(output)
-    outpath = os.path.join(workingDir, 'results', sha + '.json')
+    outpath = os.path.join(workingDir, sha + '.json')
     print("saving results at {}...".format(outpath))
     jsonFileName = outpath
     jsonFile = open(jsonFileName, "a+")
     jsonFile.write(json.dumps(output))
     jsonFile.close()
     return output 
+
 
 def report_to_feature_vector(report):
     output = {'sha256': report['sha256']}
@@ -1001,32 +1266,82 @@ def report_to_feature_vector(report):
 #                                  MAIN PROGRAMM                                        #
 #########################################################################################
 def run(sampleFile, workingDir):
+
+    # data = [(1, 2), (3, 4), (5, 6), (7, 8)] # TODO
+    
+    # fast_start = time.time()
+    # with Pool(4) as pool:  # Use 4 processes
+    #     results = pool.starmap(slow_multiply, data)
+    # print("With Pool.starmap:", results)
+    # print("Time taken with Pool.starmap:", time.time() - fast_start)
+    
+    
+    # slow_start = time.time()
+    # results = [slow_multiply(x, y) for x, y in data]
+    # print("Time taken without Pool.starmap:", time.time() - slow_start)
+
+    total_start_time = time.time()  # Start measuring time
     workingDir = workingDir if workingDir.endswith('/') else workingDir + '/'
 
     # function calls
+    start_time = time.time()
     logFile = createLogFile(workingDir)
-    # print "unpacking sample..."
+    print(f"Log file created in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("unpacking sample...")
     unpackLocation = unpackSample(workingDir, sampleFile)
-    # print "get Network data..."
+    print(f"Sample unpacked in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get Network data...")
     appNet = getNet(sampleFile)
-    # print "get sample info..."
+    print(f"Network data obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get sample info...")
     appInfos = getSampleInfo(logFile, sampleFile)
-    # print "get providers..."
+    print(f"Sample info obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get providers...")
     appProviders = getProviders(logFile, sampleFile)
-    # # print "get permissions..."
+    print(f"Providers obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get permissions...")
     appPermissions = getPermissions(logFile, sampleFile)
-    #print "get activities...",sampleFile
+    print(f"Permissions obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get activities...", sampleFile)
     appActivities = getActivities(sampleFile)
-    # print "get features..."
+    print(f"Activities obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get features...")
     appFeatures = getFeatures(logFile, sampleFile)
-    # print "get intents..."
+    print(f"Features obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get intents...")
     appIntents = getIntents(logFile, sampleFile)
-    # print "list files..."
+    print(f"Intents obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("list files...")
     appFiles = getFilesInsideApk(sampleFile)
-    # print "get services and receivers..."
+    print(f"Files listed in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("get services and receivers...")
     servicesANDreceiver = getServicesReceivers(logFile, sampleFile)
-    # print "crate ssdeep hash..."
+    print(f"Services and receivers obtained in {time.time() - start_time:.2f} seconds")
+
+    start_time = time.time()
+    print("create ssdeep hash...")
     ssdeepValue = hash(sampleFile)
+    print(f"SSDeep hash created in {time.time() - start_time:.2f} seconds")
 
     dangerousCalls = []
     appUrls = []
@@ -1037,28 +1352,67 @@ def run(sampleFile, workingDir):
     dex_files = glob.glob(unpackLocation + '/*.dex')
 
     for dex in dex_files:
-        # print "decompiling sample..."
+        start_time = time.time()
+        print("decompiling sample...")
         smaliLocation = dex2X(workingDir, dex)
-        # print "search for dangerous calls..."
+        print(f"Sample decompiled in {time.time() - start_time:.2f} seconds")
+
+        start_time = time.time()
+        print("search for dangerous calls...")
         dangerousCalls.extend(parseSmaliCalls(logFile, smaliLocation))
-        # print "get URLs and IPs..."
+        print(f"Dangerous calls searched in {time.time() - start_time:.2f} seconds")
+
+        start_time = time.time()
+        print("get URLs and IPs...")
         appUrls.extend(parseSmaliURL(logFile, smaliLocation))
-        # print "check API permissions..."
+        print(f"URLs and IPs obtained in {time.time() - start_time:.2f} seconds")
+
+        start_time = time.time()
+        print("check API permissions...")
         perms, calls = checkAPIpermissions(smaliLocation)
         apiPermissions.extend(perms)
         apiCalls.extend(calls)
-        # print "check for ad networks..."
+        # print("[+] apiPermissions", apiPermissions)
+        # print("[+] apiCalls", apiCalls)
+        print(f"API permissions checked in {time.time() - start_time:.2f} seconds")
+
+        start_time = time.time()
+        print("check for ad networks...")
         detectedAds.extend(detect(smaliLocation))
-        # print "create json report..."
+        print(f"Ad networks checked in {time.time() - start_time:.2f} seconds")
+
+        start_time = time.time()
+        print("create json report...")
         shutil.rmtree(smaliLocation)
+        print(f"JSON report created in {time.time() - start_time:.2f} seconds")
+
 
     createOutput(workingDir, appNet, appProviders, appPermissions, appFeatures,
                  appIntents, servicesANDreceiver, detectedAds,
                  dangerousCalls, appUrls, appInfos, apiPermissions,
                  apiCalls, appFiles, appActivities, ssdeepValue)
-    # # print "copy icon file..."
+    # print("copy icon file...")
     # copyIcon(sampleFile, unpackLocation, workingDir)
     # programm and log footer
-    # print "close log-file..."
+    print("close log-file...")
     closeLogFile(logFile)
 
+    end_time = time.time()  # End measuring time
+    elapsed_time = end_time - total_start_time
+    print(f"Total execution time: {elapsed_time:.2f} seconds")
+
+# if __name__ == "__main__":
+#     print("enter main")
+#     data = [(1, 2), (3, 4), (5, 6), (7, 8)]
+#     # Without Pool.starmap
+#     start = time.time()
+#     results = [slow_multiply(x, y) for x, y in data]
+#     print("Without Pool.starmap:", results)
+#     print("Time taken without Pool.starmap:", time.time() - start)
+
+#     # With Pool.starmap
+#     start = time.time()
+#     with Pool(4) as pool:  # Use 4 processes
+#         results = pool.starmap(slow_multiply, data)
+#     print("With Pool.starmap:", results)
+#     print("Time taken with Pool.starmap:", time.time() - start)
